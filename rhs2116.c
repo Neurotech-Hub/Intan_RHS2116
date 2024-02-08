@@ -2,7 +2,8 @@
  * @file rhs2116.c
  * @brief Intan RHS2116 library
  ******************************************************************************/
-#include "stdio.h"
+#include <stdio.h>
+#include <stdint.h>
 #include "rhs2116.h"
 #include "spidrv.h"
 
@@ -38,8 +39,8 @@ void rhs2116_writeRegister(uint8_t regAddress, uint32_t regValue) {
 	transfer_complete = false; // Reset the completion flag before starting the transfer
 
 	// Initiate the transfer, reuse regValue (cannot be NULL)
-	Ecode_t ecode = SPIDRV_MTransfer(rhs2116_context.spiHandle, &command, &regValue,
-			sizeof(command), transfer_callback);
+	Ecode_t ecode = SPIDRV_MTransfer(rhs2116_context.spiHandle, &command,
+			&regValue, sizeof(command), transfer_callback);
 	EFM_ASSERT(ecode == ECODE_EMDRV_SPIDRV_OK);
 
 	// Wait for the transfer to complete

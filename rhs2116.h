@@ -69,7 +69,7 @@
 #define RHS_COMP_TA				252
 #define RHS_COMP_N				253
 #define RHS_NCH					254
-#define RHS_CHIP_ID				255 // RHS2116 = 32
+#define RHS_CHIP_ID				255 // RHS2116 = 32 (0x20)
 
 typedef struct {
 	SPIDRV_Handle_t spiHandle;
