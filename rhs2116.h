@@ -1,5 +1,5 @@
 /***************************************************************************//**
- * @file rhs2116.c
+ * @file rhs2116.h
  * @brief Intan RHS2116 library
  ******************************************************************************/
 
@@ -7,6 +7,8 @@
 #define RHS_2116_H
 
 #include "spidrv.h"
+
+#define CHIP_ID					0x20
 
 #define RHS_CLEAR				0x6A
 #define RHS_SUPPS_BIASCURR		0
@@ -76,7 +78,12 @@ typedef struct {
 } Rhs2116_Context_t;
 
 void rhs2116_init(SPIDRV_Handle_t spiHandle);
-void rhs2116_writeRegister(uint8_t regAddress, uint32_t regValue);
-uint32_t rhs2116_readRegister(uint8_t regAddress);
+void transfer_callback(SPIDRV_HandleData_t *handle, Ecode_t transfer_status,
+		int items_transferred);
+uint16_t do_transer(void);
+bool rhs2116_writeRegister(uint8_t regAddress, uint16_t regValue, bool uFlag, bool mFlag);
+uint16_t rhs2116_readRegister(uint8_t regAddress, bool uFlag, bool mFlag);
+void rhs2116_clear(void);
+bool rhs2116_checkId(void);
 
 #endif  // RHS_2116_H
