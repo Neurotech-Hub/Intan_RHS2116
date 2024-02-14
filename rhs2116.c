@@ -33,6 +33,15 @@ void transfer_callback(SPIDRV_HandleData_t *handle, Ecode_t transfer_status,
 void rhs2116_init(SPIDRV_Handle_t spiHandle)
 {
 	rhs2116_context.spiHandle = spiHandle;
+	rhs2116_checkId();
+	rhs2116_STIM_EN_A(0x0000);
+	rhs2116_STIM_EN_B(0x0000);
+	rhs2116_DC_AMP_PWR(0xFFFF);
+	// 0x00C7
+	rhs2116_RHS_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias);
+	// 0x051A
+	rhs2116_RHS_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspEn, bool absMode, bool twosComp, bool weakMiso, bool digout1HiZ, bool digout1, bool digout2HiZ, bool digout2, bool digoutOD);
+	rhs2116_clear();
 }
 
 uint16_t do_transfer(void)
@@ -70,7 +79,7 @@ uint16_t do_transfer(void)
 		;
 
 	// get bytes back in order
-	uint16_t receivedData = ((rx_buffer >> 8) & 0xFF00) | ((rx_buffer >> 24) & 0xFF);
+	uint16_t receivedData = ((rx_buffer >> 16) & 0xFF00) | ((rx_buffer >> 24) & 0xFF);
 
 	return receivedData;
 }
@@ -148,12 +157,50 @@ bool rhs2116_checkId(void)
 	}
 }
 
+uint16_t rhs2116_convert(uint8_t channel, bool uFlag, bool mFlag, bool dFlag, bool hFlag)
+{
+	tx_buffer = 0;
+
+	uint8_t lsbCommand = 0x00; // Bits 7 and 6 set to 1, bits 5-0 set to 0 as base
+	if (uFlag)
+	{
+		lsbCommand |= 0x20; // Set U flag (bit 5)
+	}
+	if (mFlag)
+	{
+		lsbCommand |= 0x10; // Set M flag (bit 4)
+	}
+	if (dFlag)
+	{
+		lsbCommand |= 0x08;
+	}
+	if (hFlag)
+	{
+		lsbCommand |= 0x04;
+	}
+
+	tx_buffer = ((uint32_t)channel << 16) | (uint32_t)lsbCommand;
+	uint16_t receivedData = do_transfer();
+
+	// receivedData would be the 10-bit version if (dFlag), otherwise return 16-bit
+	// rx_buffer is still full from do_transfer()
+	if (!dFlag)
+	{
+		uint16_t receivedData = (rx_buffer & 0xFF00) | ((rx_buffer >> 8) & 0xFF);
+	}
+
+	return receivedData;
+}
+
+// compliance monitor read
+// fault monitor read
+
 /*
  * Configures Register 0: Supply Sensor and ADC Buffer Bias Current
  * MUX bias [5:0]: Configures the bias current of the MUX (function of ADC sampling rate).
  * ADC buffer bias [5:0]: Configures the bias current of the internal reference buffer in the ADC (function of ADC sampling rate).
  */
-uint16_t rhs2116_regValue_RHS_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias)
+bool rhs2116_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias)
 {
 	// Ensure the values fit in their respective fields
 	adcBufferBias &= 0x3F; // Mask to 6 bits
@@ -161,8 +208,9 @@ uint16_t rhs2116_regValue_RHS_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxB
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (adcBufferBias << 6) | (muxBias << 0);
+	bool result = rhs2116_writeRegister(RHS_SUPPS_BIASCURR, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
@@ -178,15 +226,16 @@ uint16_t rhs2116_regValue_RHS_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxB
  * digout2: Drives auxout2 with this bit value when digout2 HiZ is 0.
  * digoutOD: Controls open-drain auxiliary high-voltage digital output pin auxoutOD.
  */
-uint16_t rhs2116_regValue_RHS_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspEn, bool absMode, bool twosComp, bool weakMiso, bool digout1HiZ, bool digout1, bool digout2HiZ, bool digout2, bool digoutOD)
+bool rhs2116_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspEn, bool absMode, bool twosComp, bool weakMiso, bool digout1HiZ, bool digout1, bool digout2HiZ, bool digout2, bool digoutOD)
 {
 	// Ensure the values fit in their respective fields
 	dspCutoffFreq &= 0xF; // Mask to 4 bits
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (digoutOD << 12) | (digout2 << 11) | (digout2HiZ << 10) | (digout1 << 9) | (digout1HiZ << 8) | (weakMiso << 7) | (twosComp << 6) | (absMode << 5) | (dspEn << 4) | (dspCutoffFreq << 0);
+	bool result = rhs2116_writeRegister(RHS_OUTFMT_DSP_AUXDIO, command, false, false);
 
-	return command;
+	return result;
 }
 
 // Define the positions and masks for the fields
@@ -206,7 +255,7 @@ uint16_t rhs2116_regValue_RHS_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspE
  * Zcheck DAC power: Activates the on-chip DAC for impedance measurement when set to 1.
  * Zcheck select [5:0]: Selects the electrode for impedance testing.
  */
-uint16_t rhs2116_regValue_RHS_IMPCHK_CTRL(uint8_t zcheckSelect, bool zcheckDacPower, bool zcheckLoad, uint8_t zcheckScale, bool zcheckEn)
+bool rhs2116_IMPCHK_CTRL(uint8_t zcheckSelect, bool zcheckDacPower, bool zcheckLoad, uint8_t zcheckScale, bool zcheckEn)
 {
 	// Ensure the values fit in their respective fields
 	zcheckSelect &= 0x3F; // Mask to 6 bits
@@ -214,30 +263,32 @@ uint16_t rhs2116_regValue_RHS_IMPCHK_CTRL(uint8_t zcheckSelect, bool zcheckDacPo
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (zcheckSelect << 8) | (zcheckDacPower << 7) | (zcheckLoad << 6) | (zcheckScale << 4) | (zcheckEn << 0);
+	bool result = rhs2116_writeRegister(RHS_IMPCHK_CTRL, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 3: Impedance Check DAC
  * Zcheck DAC [7:0]: Sets the output voltage of the DAC for impedance checking.
  */
-uint16_t rhs2116_regValue_IMPCHK_DAC(uint8_t zcheckDac)
+bool rhs2116_IMPCHK_DAC(uint8_t zcheckDac)
 {
 	// Ensure the value fits in its respective field
 	zcheckDac &= 0xFF; // Mask to 8 bits
 
 	// Construct the command by placing the value in the correct position
 	uint16_t command = zcheckDac;
+	bool result = rhs2116_writeRegister(RHS_IMPCHK_DAC, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 4: RH1 Cutoff Frequency
  * RH1 sel1 [5:0], RH1 sel2 [4:0]: Sets the upper cutoff frequency of the biopotential amplifiers.
  */
-uint16_t rhs2116_regValue_RH1_CUTOFF(uint8_t rh1Sel1, uint8_t rh1Sel2)
+bool rhs2116_RH1_CUTOFF(uint8_t rh1Sel1, uint8_t rh1Sel2)
 {
 	// Ensure the values fit in their respective fields
 	rh1Sel1 &= 0x3F; // Mask to 6 bits
@@ -245,15 +296,16 @@ uint16_t rhs2116_regValue_RH1_CUTOFF(uint8_t rh1Sel1, uint8_t rh1Sel2)
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (rh1Sel2 << 6) | rh1Sel1;
+	bool result = rhs2116_writeRegister(RHS_RH1_CUTOFF, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 5: RH2 Cutoff Frequency
  * RH2 sel1 [5:0], RH2 sel2 [4:0]: Sets the upper cutoff frequency of the biopotential amplifiers.
  */
-uint16_t rhs2116_regValue_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2)
+bool rhs2116_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2)
 {
 	// Ensure the values fit in their respective fields
 	rh2Sel1 &= 0x3F; // Mask to 6 bits
@@ -261,15 +313,16 @@ uint16_t rhs2116_regValue_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2)
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (rh2Sel2 << 6) | rh2Sel1;
+	bool result = rhs2116_writeRegister(RHS_RH2_CUTOFF, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 6: RL_A Cutoff Frequency
  * RL_A sel1 [6:0], RL_A sel2 [5:0], RL_A sel3: Sets the "A version" of the lower cutoff frequency of the biopotential amplifiers.
  */
-uint16_t rhs2116_regValue_RL_A_CUTOFF(uint8_t rlASel1, uint8_t rlASel2, bool rlASel3)
+bool rhs2116_RL_A_CUTOFF(uint8_t rlASel1, uint8_t rlASel2, bool rlASel3)
 {
 	// Ensure the values fit in their respective fields
 	rlASel1 &= 0x7F; // Mask to 7 bits
@@ -277,15 +330,16 @@ uint16_t rhs2116_regValue_RL_A_CUTOFF(uint8_t rlASel1, uint8_t rlASel2, bool rlA
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (rlASel3 << 13) | (rlASel2 << 7) | rlASel1;
+	bool result = rhs2116_writeRegister(RHS_ARL_A_CUTOFF, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 7: RL_B Cutoff Frequency
  * RL_B sel1 [6:0], RL_B sel2 [5:0], RL_B sel3: Sets the "B version" of the lower cutoff frequency of the biopotential amplifiers.
  */
-uint16_t rhs2116_regValue_RL_B_CUTOFF(uint8_t rlBSel1, uint8_t rlBSel2, bool rlBSel3)
+bool rhs2116_RL_B_CUTOFF(uint8_t rlBSel1, uint8_t rlBSel2, bool rlBSel3)
 {
 	// Ensure the values fit in their respective fields
 	rlBSel1 &= 0x7F; // Mask to 7 bits
@@ -293,23 +347,25 @@ uint16_t rhs2116_regValue_RL_B_CUTOFF(uint8_t rlBSel1, uint8_t rlBSel2, bool rlB
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (rlBSel3 << 13) | (rlBSel2 << 7) | rlBSel1;
+	bool result = rhs2116_writeRegister(RHS_ARL_B_CUTOFF, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 8: Individual AC Amplifier Power
  * AC amp power [15:0]: Powers down individual AC-coupled high-gain amplifiers when set to 0.
  */
-uint16_t rhs2116_regValue_ACAMP_PWR(uint16_t acAmpPower)
+bool rhs2116_ACAMP_PWR(uint16_t acAmpPower)
 {
 	// Ensure the value fits in its respective field
 	acAmpPower &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the acAmpPower value
 	uint16_t command = acAmpPower;
+	bool result = rhs2116_writeRegister(RHS_ACAMP_PWR, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
@@ -317,15 +373,16 @@ uint16_t rhs2116_regValue_ACAMP_PWR(uint16_t acAmpPower)
  * amp fast settle [15:0]: Drives AC high-gain amplifier outputs to baseline level when set to 1.
  * Note: Register 10 is a triggered register.
  */
-uint16_t rhs2116_regValue_AMP_FSTSETL(uint16_t ampFastSettle)
+bool rhs2116_AMP_FSTSETL(uint16_t ampFastSettle)
 {
 	// Ensure the value fits in its respective field
 	ampFastSettle &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the ampFastSettle value
 	uint16_t command = ampFastSettle;
+	bool result = rhs2116_writeRegister(RHS_AMP_FSTSETL, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
@@ -333,52 +390,55 @@ uint16_t rhs2116_regValue_AMP_FSTSETL(uint16_t ampFastSettle)
  * amp fL select [15:0]: Selects between two different lower cutoff frequencies for each AC high-gain amplifier.
  * Note: Register 12 is a triggered register.
  */
-uint16_t rhs2116_regValue_AMP_LCUTOFF(uint16_t ampFLSelect)
+bool rhs2116_AMP_LCUTOFF(uint16_t ampFLSelect)
 {
 	// Ensure the value fits in its respective field
 	ampFLSelect &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the ampFLSelect value
 	uint16_t command = ampFLSelect;
+	bool result = rhs2116_writeRegister(RHS_AMP_LCUTOFF, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 32: Stimulation Enable A
  * stim enable A [15:0]: Must be set to 0xAAAA to enable on-chip stimulators.
  */
-uint16_t rhs2116_regValue_STIM_EN_A(uint16_t stimEnableA)
+bool rhs2116_STIM_EN_A(uint16_t stimEnableA)
 {
 	// Ensure the value fits in its respective field
 	stimEnableA &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the stimEnableA value
 	uint16_t command = stimEnableA;
+	bool result = rhs2116_writeRegister(RHS_STIM_EN_A, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 33: Stimulation Enable B
  * stim enable B [15:0]: Must be set to 0x00FF to enable on-chip stimulators.
  */
-uint16_t rhs2116_regValue_STIM_EN_B(uint16_t stimEnableB)
+bool rhs2116_STIM_EN_B(uint16_t stimEnableB)
 {
 	// Ensure the value fits in its respective field
 	stimEnableB &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the stimEnableB value
 	uint16_t command = stimEnableB;
+	bool result = rhs2116_writeRegister(RHS_STIM_EN_B, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 34: Stimulation Current Step Size
  * step sel1 [6:0], step sel2 [5:0], step sel3 [1:0]: Sets the step size of the current-output DACs in each on-chip stimulator.
  */
-uint16_t rhs2116_regValue_STIM_CUR_STEP(uint8_t stepSel1, uint8_t stepSel2, uint8_t stepSel3)
+bool rhs2116_STIM_CUR_STEP(uint8_t stepSel1, uint8_t stepSel2, uint8_t stepSel3)
 {
 	// Ensure the values fit in their respective fields
 	stepSel1 &= 0x7F; // Mask to 7 bits
@@ -387,15 +447,16 @@ uint16_t rhs2116_regValue_STIM_CUR_STEP(uint8_t stepSel1, uint8_t stepSel2, uint
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (stepSel3 << 13) | (stepSel2 << 7) | stepSel1;
+	bool result = rhs2116_writeRegister(RHS_STIM_CUR_STEP, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 35: Stimulation Bias Voltages
  * stim Pbias [3:0] and stim Nbias [3:0]: Configures internal bias voltages for the stimulator circuits.
  */
-uint16_t rhs2116_regValue_STIM_BIAS_VOLTS(uint8_t stimPbias, uint8_t stimNbias)
+bool rhs2116_STIM_BIAS_VOLTS(uint8_t stimPbias, uint8_t stimNbias)
 {
 	// Ensure the values fit in their respective fields
 	stimPbias &= 0xF; // Mask to 4 bits
@@ -403,30 +464,32 @@ uint16_t rhs2116_regValue_STIM_BIAS_VOLTS(uint8_t stimPbias, uint8_t stimNbias)
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (stimPbias << 4) | stimNbias;
+	bool result = rhs2116_writeRegister(RHS_STIM_BIAS_VOLTS, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 36: Current-Limited Charge Recovery Target Voltage
  * charge recovery DAC [7:0]: Sets the output voltage of the DAC for current-limited charge recovery circuits.
  */
-uint16_t rhs2116_regValue_CHRG_REC_VOLTS(uint8_t chargeRecoveryDac)
+bool rhs2116_CHRG_REC_VOLTS(uint8_t chargeRecoveryDac)
 {
 	// Ensure the value fits in its respective field
 	chargeRecoveryDac &= 0xFF; // Mask to 8 bits
 
 	// Construct the command by placing the value in the correct position
 	uint16_t command = chargeRecoveryDac;
+	bool result = rhs2116_writeRegister(RHS_CHRG_REC_VOLTS, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 37: Charge Recovery Current Limit
  * Imax sel1 [6:0], Imax sel2 [5:0], Imax sel3 [1:0]: Sets the maximum current for the current-limited charge recovery circuit.
  */
-uint16_t rhs2116_regValue_CHRG_REC_CUR_LIM(uint8_t imaxSel1, uint8_t imaxSel2, uint8_t imaxSel3)
+bool rhs2116_CHRG_REC_CUR_LIM(uint8_t imaxSel1, uint8_t imaxSel2, uint8_t imaxSel3)
 {
 	// Ensure the values fit in their respective fields
 	imaxSel1 &= 0x7F; // Mask to 7 bits
@@ -435,23 +498,92 @@ uint16_t rhs2116_regValue_CHRG_REC_CUR_LIM(uint8_t imaxSel1, uint8_t imaxSel2, u
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (imaxSel3 << 13) | (imaxSel2 << 7) | imaxSel1;
+	bool result = rhs2116_writeRegister(RHS_CHRG_REC_CUR_LIM, command, false, false);
 
-	return command;
+	return result;
 }
 
 /*
  * Configures Register 38: Individual DC Amplifier Power
  * DC amp power [15:0]: Powers down individual DC-coupled low-gain amplifiers when set to 0 (not recommended due to a hardware bug).
  */
-uint16_t rhs2116_regValue_DC_AMP_PWR(uint16_t dcAmpPower)
+bool rhs2116_DC_AMP_PWR(uint16_t dcAmpPower)
 {
 	// Ensure the value fits in its respective field
 	dcAmpPower &= 0xFFFF; // Mask to 16 bits
 
 	// The command is the same as the dcAmpPower value
 	uint16_t command = dcAmpPower;
+	bool result = rhs2116_writeRegister(RHS_DC_AMP_PWR, command, false, false);
 
-	return command;
+	return result;
+}
+
+/*
+ * Configures Register 42: Stimulator On (TRIGGERED REGISTER)
+ * stim on [15:0]: Turns on current sources in corresponding stimulators when set to 1.
+ */
+bool rhs2116_STIM_ON(uint16_t stimOn)
+{
+	// Ensure the value fits in its respective field
+	stimOn &= 0xFFFF; // Mask to 16 bits
+
+	// The command is the same as the stimOn value
+	uint16_t command = stimOn;
+	bool result = rhs2116_writeRegister(RHS_STIM_ON, command, false, false);
+
+	return result;
+}
+
+/*
+ * Configures Register 44: Stimulator Polarity (TRIGGERED REGISTER)
+ * stim pol [15:0]: Sets the polarity of current drive in corresponding stimulators.
+ * Setting a bit to 0 produces negative current, and setting a bit to 1 produces positive current.
+ */
+bool rhs2116_STIM_POL(uint16_t stimPol)
+{
+	// Ensure the value fits in its respective field
+	stimPol &= 0xFFFF; // Mask to 16 bits
+
+	// The command is the same as the stimPol value
+	uint16_t command = stimPol;
+	bool result = rhs2116_writeRegister(RHS_STIM_POL, command, false, false);
+
+	return result;
+}
+
+/*
+ * Configures Register 46: Charge Recovery Switch (TRIGGERED REGISTER)
+ * charge recovery switch [15:0]: Controls on-chip transistor switches for charge recovery.
+ * Setting a bit to 1 closes the corresponding switch. Normally, these bits should be set to 0.
+ */
+bool rhs2116_CHRG_RECOVER(uint16_t chargeRecoverySwitch)
+{
+	// Ensure the value fits in its respective field
+	chargeRecoverySwitch &= 0xFFFF; // Mask to 16 bits
+
+	// The command is the same as the chargeRecoverySwitch value
+	uint16_t command = chargeRecoverySwitch;
+	bool result = rhs2116_writeRegister(RHS_CHRG_RECOVER, command, false, true);
+
+	return result;
+}
+
+/*
+ * Configures Register 48: Current-Limited Charge Recovery Enable (TRIGGERED REGISTER)
+ * CL charge recovery enable [15:0]: Connects electrodes to a current-limited driver for charge recovery.
+ * Setting a bit to 1 connects an electrode to its current-limited driver. Normally, these bits should be set to 0.
+ */
+bool rhs2116_CUR_LMT_CHRG_REC(uint16_t clChargeRecoveryEnable)
+{
+	// Ensure the value fits in its respective field
+	clChargeRecoveryEnable &= 0xFFFF; // Mask to 16 bits
+
+	// The command is the same as the clChargeRecoveryEnable value
+	uint16_t command = clChargeRecoveryEnable;
+	bool result = rhs2116_writeRegister(RHS_CUR_LMT_CHRG_REC, command, false, true);
+
+	return result;
 }
 
 /*
@@ -460,7 +592,7 @@ uint16_t rhs2116_regValue_DC_AMP_PWR(uint16_t dcAmpPower)
  * negativeCurrentMagnitude: The magnitude of the negative current for the specified channel.
  * negativeCurrentTrim: The trim value for the negative stimulation current for the specified channel.
  */
-void rhs2116_regValue_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim)
+bool rhs2116_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim)
 {
 	// Ensure the values fit in their respective fields
 	negativeCurrentMagnitude &= 0xFF; // Mask to 8 bits
@@ -468,6 +600,9 @@ void rhs2116_regValue_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagn
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (negativeCurrentTrim << 8) | negativeCurrentMagnitude;
+	bool result = rhs2116_writeRegister(channel + RHS_NEG_CUR_MAG_0, command, false, false);
+
+	return result;
 }
 
 /*
@@ -476,7 +611,7 @@ void rhs2116_regValue_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagn
  * positiveCurrentMagnitude: The magnitude of the positive current for the specified channel.
  * positiveCurrentTrim: The trim value for the positive stimulation current for the specified channel.
  */
-void rhs2116_regValue_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim)
+bool rhs2116_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim)
 {
 	// Ensure the values fit in their respective fields
 	positiveCurrentMagnitude &= 0xFF; // Mask to 8 bits
@@ -484,4 +619,7 @@ void rhs2116_regValue_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagn
 
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (positiveCurrentTrim << 8) | positiveCurrentMagnitude;
+	bool result = rhs2116_writeRegister(channel + RHS_NEG_CUR_MAG_0, command, false, false);
+
+	return result;
 }

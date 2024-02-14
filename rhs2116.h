@@ -3,14 +3,14 @@
 																			   * @brief Intan RHS2116 library
 																			   ******************************************************************************/
 
-#ifndef RHS_2116_H
-#define RHS_2116_H
+#ifndef RHS2116_H
+#define RHS2116_H
 
 #include "spidrv.h"
 
 #define CHIP_ID 0x20
-
 #define RHS_CLEAR 0x6A
+
 #define RHS_SUPPS_BIASCURR 0
 #define RHS_OUTFMT_DSP_AUXDIO 1
 #define RHS_IMPCHK_CTRL 2
@@ -86,5 +86,25 @@ bool rhs2116_writeRegister(uint8_t regAddress, uint16_t regValue, bool uFlag, bo
 uint16_t rhs2116_readRegister(uint8_t regAddress, bool uFlag, bool mFlag);
 void rhs2116_clear(void);
 bool rhs2116_checkId(void);
+uint16_t rhs2116_convert(uint8_t channel, bool uFlag, bool mFlag, bool dFlag, bool hFlag);
+bool rhs2116_RHS_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias);
+bool rhs2116_RHS_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspEn, bool absMode, bool twosComp, bool weakMiso, bool digout1HiZ, bool digout1, bool digout2HiZ, bool digout2, bool digoutOD);
+bool rhs2116_RHS_IMPCHK_CTRL(uint8_t zcheckSelect, bool zcheckDacPower, bool zcheckLoad, uint8_t zcheckScale, bool zcheckEn);
+bool rhs2116_RH1_CUTOFF(uint8_t rh1Sel1, uint8_t rh1Sel2);
+bool rhs2116_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2);
+bool rhs2116_RL_A_CUTOFF(uint8_t rlASel1, uint8_t rlASel2, bool rlASel3);
+bool rhs2116_RL_B_CUTOFF(uint8_t rlBSel1, uint8_t rlBSel2, bool rlBSel3);
+bool rhs2116_AC_AMP_POWER(uint16_t acAmpPower);
+bool rhs2116_AMP_FAST_SETTLE(uint16_t ampFastSettle);
+bool rhs2116_AMP_FL_SELECT(uint16_t ampFLSelect);
+bool rhs2116_STIM_ENABLE_A(uint16_t stimEnableA);
+bool rhs2116_STIM_ENABLE_B(uint16_t stimEnableB);
+bool rhs2116_STIM_STEP_SIZE(uint8_t stepSel1, uint8_t stepSel2, uint8_t stepSel3);
+bool rhs2116_STIM_BIAS_VOLTAGES(uint8_t stimPbias, uint8_t stimNbias);
+bool rhs2116_CHARGE_RECOVERY_DAC(uint8_t chargeRecoveryDac);
+bool rhs2116_CHARGE_RECOVERY_CURRENT_LIMIT(uint8_t imaxSel1, uint8_t imaxSel2, uint8_t imaxSel3);
+bool rhs2116_DC_AMP_POWER(uint16_t dcAmpPower);
+bool rhs2116_NEG_STIM_CURRENT(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim);
+bool rhs2116_POS_STIM_CURRENT(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim);
 
-#endif // RHS_2116_H
+#endif // RHS2116_H
