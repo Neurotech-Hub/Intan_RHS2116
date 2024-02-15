@@ -89,8 +89,8 @@ bool rhs2116_checkId(void);
 uint16_t rhs2116_convert(uint8_t channel, bool uFlag, bool mFlag, bool dFlag, bool hFlag);
 bool rhs2116_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias);
 bool rhs2116_OUTFMT_DSP_AUXDIO(uint8_t dspCutoffFreq, bool dspEn, bool absMode, bool twosComp, bool weakMiso, bool digout1HiZ, bool digout1, bool digout2HiZ, bool digout2, bool digoutOD);
-bool rhs2116_IMPCHK_CTRL(uint8_t zcheckSelect, bool zcheckDacPower,
-bool zcheckLoad, uint8_t zcheckScale, bool zcheckEn);
+bool rhs2116_IMPCHK_CTRL(bool zcheckEn, uint8_t zcheckScale,
+						 bool zcheckLoad, bool zcheckDacPower, uint8_t zcheckSelect);
 bool rhs2116_IMPCHK_DAC(uint8_t zcheckDac);
 bool rhs2116_RH1_CUTOFF(uint8_t rh1Sel1, uint8_t rh1Sel2);
 bool rhs2116_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2);
