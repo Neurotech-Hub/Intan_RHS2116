@@ -85,6 +85,7 @@ uint16_t do_transer(void);
 bool rhs2116_writeRegister(uint8_t regAddress, uint16_t regValue, bool uFlag, bool mFlag);
 uint16_t rhs2116_readRegister(uint8_t regAddress, bool uFlag, bool mFlag);
 void rhs2116_clear(void);
+bool rhs2116_clearComplianceMonitor(void);
 bool rhs2116_checkId(void);
 uint16_t rhs2116_convert(uint8_t channel, bool uFlag, bool mFlag, bool dFlag, bool hFlag);
 bool rhs2116_SUPPS_BIASCURR(uint8_t adcBufferBias, uint8_t muxBias);
@@ -97,8 +98,8 @@ bool rhs2116_RH2_CUTOFF(uint8_t rh2Sel1, uint8_t rh2Sel2);
 bool rhs2116_RL_A_CUTOFF(uint8_t rlASel1, uint8_t rlASel2, bool rlASel3);
 bool rhs2116_RL_B_CUTOFF(uint8_t rlBSel1, uint8_t rlBSel2, bool rlBSel3);
 bool rhs2116_ACAMP_PWR(uint16_t acAmpPower);
-bool rhs2116_AMP_FSTSETL(uint16_t ampFastSettle);
-bool rhs2116_AMP_LCUTOFF(uint16_t ampFLSelect);
+bool rhs2116_AMP_FSTSETL(uint16_t ampFastSettle, bool uFlag);
+bool rhs2116_AMP_LCUTOFF(uint16_t ampFLSelect, bool uFlag);
 bool rhs2116_STIM_EN_A(uint16_t stimEnableA);
 bool rhs2116_STIM_EN_B(uint16_t stimEnableB);
 bool rhs2116_STIM_CUR_STEP(uint8_t stepSel1, uint8_t stepSel2, uint8_t stepSel3);
@@ -106,11 +107,13 @@ bool rhs2116_STIM_BIAS_VOLTS(uint8_t stimPbias, uint8_t stimNbias);
 bool rhs2116_CHRG_REC_VOLTS(uint8_t chargeRecoveryDac);
 bool rhs2116_CHRG_REC_CUR_LIM(uint8_t imaxSel1, uint8_t imaxSel2, uint8_t imaxSel3);
 bool rhs2116_DC_AMP_PWR(uint16_t dcAmpPower);
-bool rhs2116_STIM_ON(uint16_t stimOn);
-bool rhs2116_STIM_POL(uint16_t stimPol);
-bool rhs2116_CHRG_RECOVER(uint16_t chargeRecoverySwitch);
-bool rhs2116_CUR_LMT_CHRG_REC(uint16_t clChargeRecoveryEnable);
-bool rhs2116_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim);
-bool rhs2116_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim);
+uint16_t rhs2116_readComplianceMonitor(void);
+bool rhs2116_STIM_ON(uint16_t stimOn, bool uFlag);
+bool rhs2116_STIM_POL(uint16_t stimPol, bool uFlag);
+bool rhs2116_CHRG_RECOVER(uint16_t chargeRecoverySwitch, bool uFlag);
+bool rhs2116_CUR_LMT_CHRG_REC(uint16_t clChargeRecoveryEnable, bool uFlag);
+uint16_t rhs2116_readFaultMonitor(void)
+bool rhs2116_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim, bool uFlag);
+bool rhs2116_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim, bool uFlag);
 
 #endif // RHS2116_H
