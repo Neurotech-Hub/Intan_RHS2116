@@ -112,7 +112,7 @@ bool rhs2116_STIM_ON(uint16_t stimOn, bool uFlag);
 bool rhs2116_STIM_POL(uint16_t stimPol, bool uFlag);
 bool rhs2116_CHRG_RECOVER(uint16_t chargeRecoverySwitch, bool uFlag);
 bool rhs2116_CUR_LMT_CHRG_REC(uint16_t clChargeRecoveryEnable, bool uFlag);
-uint16_t rhs2116_readFaultMonitor(void)
+uint16_t rhs2116_readFaultMonitor(void);
 bool rhs2116_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude, uint8_t negativeCurrentTrim, bool uFlag);
 bool rhs2116_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude, uint8_t positiveCurrentTrim, bool uFlag);
 
