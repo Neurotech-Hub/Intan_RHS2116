@@ -11,6 +11,7 @@
 static Rhs2116_Context_t rhs2116_context;
 uint32_t tx_buffer;
 uint32_t rx_buffer;
+uint16_t testVal = 0;
 
 // Flag to signal that transfer is complete
 static volatile bool transfer_complete = false;
@@ -35,6 +36,10 @@ void rhs2116_init(SPIDRV_Handle_t spiHandle) {
 	rhs2116_STIM_EN_A(0x0000);// Ensure that stimulation is disabled until we configure all others
 	rhs2116_STIM_EN_B(0x0000);	// ^
 	rhs2116_DC_AMP_PWR(0xFFFF); // Power up all DC-coupled low-gain amplifiers to avoid excessive power consumption
+
+	rhs2116_writeRegister(RHS_STIM_CUR_STEP, 0xBABE, false, false);
+	testVal = rhs2116_readRegister(RHS_STIM_CUR_STEP, false, false);
+
 	rhs2116_clear();
 
 	rhs2116_SUPPS_BIASCURR(32, 40);
@@ -47,16 +52,16 @@ void rhs2116_init(SPIDRV_Handle_t spiHandle) {
 	rhs2116_RL_A_CUTOFF(0x28, 0x02, false); // 0x00A8
 	rhs2116_RL_B_CUTOFF(0x0A, 0x00, false);
 	rhs2116_ACAMP_PWR(0x0000);					// all off
-	rhs2116_AMP_FSTSETL(0x0000, true);				
-	rhs2116_AMP_LCUTOFF(0xFFFF, true);				
+	rhs2116_AMP_FSTSETL(0x0000, true);
+	rhs2116_AMP_LCUTOFF(0xFFFF, true);
 	rhs2116_STIM_CUR_STEP(0x22, 0x07, 0x01);	// 0x00E2
 	rhs2116_STIM_BIAS_VOLTS(0x0A, 0x0A);		// 0x00AA
 	rhs2116_CHRG_REC_VOLTS(0x80);				// 0x0080
 	rhs2116_CHRG_REC_CUR_LIM(0x00, 0x3E, 0x02); // 0x4F00
-	rhs2116_STIM_ON(0x0000, true);					
-	rhs2116_STIM_POL(0x0000, true);					
-	rhs2116_CHRG_RECOVER(0x0000, true);				
-	rhs2116_CUR_LMT_CHRG_REC(0x0000, true);			
+	rhs2116_STIM_ON(0x0000, true);
+	rhs2116_STIM_POL(0x0000, true);
+	rhs2116_CHRG_RECOVER(0x0000, true);
+	rhs2116_CUR_LMT_CHRG_REC(0x0000, true);
 
 	for (i = 0; i < 16; i++) {
 		rhs2116_NEG_CUR_MAG_X(i, 0x00, 0x80, true); // 0x8000
@@ -104,8 +109,8 @@ uint16_t do_transfer(void) {
 		;
 
 	// get bytes back in order
-	uint16_t receivedData = ((rx_buffer >> 16) & 0xFF00)
-			| ((rx_buffer >> 24) & 0xFF);
+	uint16_t receivedData = ((rx_buffer >> 8) & 0xFF00) // Extracts the second byte and places it in the high byte
+	| ((rx_buffer >> 24) & 0x00FF); // Extracts the high-order byte and places it in the low byte
 
 	return receivedData;
 }
@@ -503,7 +508,7 @@ bool rhs2116_CHRG_REC_CUR_LIM(uint8_t imaxSel1, uint8_t imaxSel2,
 	false);
 
 	return result;
-		}
+}
 
 /*
  * Configures Register 38: Individual DC Amplifier Power
@@ -618,7 +623,7 @@ bool rhs2116_NEG_CUR_MAG_X(uint8_t channel, uint8_t negativeCurrentMagnitude,
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (negativeCurrentTrim << 8) | negativeCurrentMagnitude;
 	bool result = rhs2116_writeRegister(channel + RHS_NEG_CUR_MAG_0, command,
-	uFlag, false);
+			uFlag, false);
 
 	return result;
 }
@@ -638,7 +643,7 @@ bool rhs2116_POS_CUR_MAG_X(uint8_t channel, uint8_t positiveCurrentMagnitude,
 	// Construct the command by shifting and combining the fields
 	uint16_t command = (positiveCurrentTrim << 8) | positiveCurrentMagnitude;
 	bool result = rhs2116_writeRegister(channel + RHS_NEG_CUR_MAG_0, command,
-	uFlag, false);
+			uFlag, false);
 
 	return result;
 }
